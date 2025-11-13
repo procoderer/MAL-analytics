@@ -1,0 +1,9 @@
+# CSV files - preserve line endings as-is (no conversion)
+*.csv text eol=lf
+
+# Python files - normalize to LF
+*.py text eol=lf
+
+# Other text files - use system default
+* text=auto
+
