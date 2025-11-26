@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+body {
+  margin: 0;
+}
+
+.container {
+  max-width: 840px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+button {
+  padding: 0.6rem 1rem;
+  border: 1px solid currentColor;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+
