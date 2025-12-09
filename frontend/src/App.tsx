@@ -1,60 +1,66 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-type Anime = {
+// Matches TopAnime shape from the API doc: anime_id, title, metric
+type TopAnime = {
+  anime_id: number;
+  title: string;
+  metric: number | null;
+};
+
+type TopLists = {
+  rating: TopAnime[];
+  popularity: TopAnime[];
+  favorites: TopAnime[];
+};
+
+const fallbackTopLists: TopLists = {
+  rating: [
+    { anime_id: 1, title: "Fullmetal Alchemist: Brotherhood", metric: 9.1 },
+    { anime_id: 2, title: "Gintama°", metric: 9.0 },
+    { anime_id: 3, title: "Hunter x Hunter (2011)", metric: 9.0 },
+    { anime_id: 4, title: "Steins;Gate", metric: 8.9 },
+    { anime_id: 5, title: "Attack on Titan Season 3 Part 2", metric: 8.9 },
+    { anime_id: 6, title: "Gintama: The Final", metric: 8.9 },
+    { anime_id: 7, title: "Bleach: TYBW", metric: 8.8 },
+    { anime_id: 8, title: "Fate/stay night: UBW", metric: 8.7 },
+    { anime_id: 9, title: "Kaguya-sama: Ultra Romantic", metric: 8.7 },
+    { anime_id: 10, title: "Violet Evergarden", metric: 8.7 },
+  ],
+  popularity: [
+    { anime_id: 11, title: "Attack on Titan", metric: 1 },
+    { anime_id: 12, title: "Death Note", metric: 2 },
+    { anime_id: 13, title: "Fullmetal Alchemist: Brotherhood", metric: 3 },
+    { anime_id: 14, title: "One Punch Man", metric: 4 },
+    { anime_id: 15, title: "Naruto", metric: 5 },
+    { anime_id: 16, title: "My Hero Academia", metric: 6 },
+    { anime_id: 17, title: "Demon Slayer", metric: 7 },
+    { anime_id: 18, title: "One Piece", metric: 8 },
+    { anime_id: 19, title: "Tokyo Ghoul", metric: 9 },
+    { anime_id: 20, title: "Sword Art Online", metric: 10 },
+  ],
+  favorites: [
+    { anime_id: 21, title: "Fullmetal Alchemist: Brotherhood", metric: 3_200_000 },
+    { anime_id: 22, title: "Attack on Titan", metric: 3_100_000 },
+    { anime_id: 23, title: "Naruto", metric: 2_900_000 },
+    { anime_id: 24, title: "One Piece", metric: 2_800_000 },
+    { anime_id: 25, title: "Death Note", metric: 2_750_000 },
+    { anime_id: 26, title: "Hunter x Hunter", metric: 2_600_000 },
+    { anime_id: 27, title: "Code Geass", metric: 2_500_000 },
+    { anime_id: 28, title: "Steins;Gate", metric: 2_400_000 },
+    { anime_id: 29, title: "Demon Slayer", metric: 2_250_000 },
+    { anime_id: 30, title: "Jujutsu Kaisen", metric: 2_200_000 },
+  ],
+};
+
+type GameAnime = {
   id: string;
   title: string;
   score?: number;
   popularity?: number;
   favorites?: number;
-  synopsis?: string;
 };
 
-type TopLists = {
-  rating: Anime[];
-  popularity: Anime[];
-  favorites: Anime[];
-};
-
-const fallbackTopLists: TopLists = {
-  rating: [
-    { id: "1", title: "Fullmetal Alchemist: Brotherhood", score: 9.1 },
-    { id: "2", title: "Gintama°", score: 9.0 },
-    { id: "3", title: "Hunter x Hunter (2011)", score: 9.0 },
-    { id: "4", title: "Steins;Gate", score: 8.9 },
-    { id: "5", title: "Attack on Titan Season 3 Part 2", score: 8.9 },
-    { id: "6", title: "Gintama: The Final", score: 8.9 },
-    { id: "7", title: "Bleach: TYBW", score: 8.8 },
-    { id: "8", title: "Fate/stay night: UBW", score: 8.7 },
-    { id: "9", title: "Kaguya-sama: Ultra Romantic", score: 8.7 },
-    { id: "10", title: "Violet Evergarden", score: 8.7 },
-  ],
-  popularity: [
-    { id: "11", title: "Attack on Titan", popularity: 1 },
-    { id: "12", title: "Death Note", popularity: 2 },
-    { id: "13", title: "Fullmetal Alchemist: Brotherhood", popularity: 3 },
-    { id: "14", title: "One Punch Man", popularity: 4 },
-    { id: "15", title: "Naruto", popularity: 5 },
-    { id: "16", title: "My Hero Academia", popularity: 6 },
-    { id: "17", title: "Demon Slayer", popularity: 7 },
-    { id: "18", title: "One Piece", popularity: 8 },
-    { id: "19", title: "Tokyo Ghoul", popularity: 9 },
-    { id: "20", title: "Sword Art Online", popularity: 10 },
-  ],
-  favorites: [
-    { id: "21", title: "Fullmetal Alchemist: Brotherhood", favorites: 3_200_000 },
-    { id: "22", title: "Attack on Titan", favorites: 3_100_000 },
-    { id: "23", title: "Naruto", favorites: 2_900_000 },
-    { id: "24", title: "One Piece", favorites: 2_800_000 },
-    { id: "25", title: "Death Note", favorites: 2_750_000 },
-    { id: "26", title: "Hunter x Hunter", favorites: 2_600_000 },
-    { id: "27", title: "Code Geass", favorites: 2_500_000 },
-    { id: "28", title: "Steins;Gate", favorites: 2_400_000 },
-    { id: "29", title: "Demon Slayer", favorites: 2_250_000 },
-    { id: "30", title: "Jujutsu Kaisen", favorites: 2_200_000 },
-  ],
-};
-
-const gamePairs: Anime[][] = [
+const gamePairs: GameAnime[][] = [
   [
     { id: "g1", title: "Demon Slayer", score: 8.5, popularity: 7 },
     { id: "g2", title: "Attack on Titan", score: 9.0, popularity: 1 },
@@ -83,7 +89,7 @@ export default function App() {
       })
       .then((data) => {
         if (!isMounted) return;
-        setTopLists(data as TopLists);
+        setTopLists(normalizeTopLists(data));
         setError(null);
       })
       .catch(() => {
@@ -131,6 +137,60 @@ export default function App() {
   );
 }
 
+function normalizeTopLists(data: unknown): TopLists {
+  // Preferred shape per api.md: { rating: TopAnime[], popularity: TopAnime[], favorites: TopAnime[] }
+  if (
+    data &&
+    typeof data === "object" &&
+    "rating" in data &&
+    "popularity" in data &&
+    "favorites" in data
+  ) {
+    const obj = data as { rating: TopAnime[]; popularity: TopAnime[]; favorites: TopAnime[] };
+    return {
+      rating: (obj.rating ?? []).map((a) => ({
+        anime_id: a.anime_id,
+        title: a.title,
+        metric: toMetric(a.metric),
+      })),
+      popularity: (obj.popularity ?? []).map((a) => ({
+        anime_id: a.anime_id,
+        title: a.title,
+        metric: toMetric(a.metric),
+      })),
+      favorites: (obj.favorites ?? []).map((a) => ({
+        anime_id: a.anime_id,
+        title: a.title,
+        metric: toMetric(a.metric),
+      })),
+    };
+  }
+
+  // Fallback to grouping array rows with a `list` discriminator (what the backend currently returns)
+  if (Array.isArray(data)) {
+    const grouped: TopLists = { rating: [], popularity: [], favorites: [] };
+    data.forEach((row: any) => {
+      const list = row?.list;
+      if (list === "rating" || list === "popularity" || list === "favorites") {
+        const key: keyof TopLists = list;
+        grouped[key].push({
+          anime_id: Number(row.anime_id),
+          title: String(row.title ?? ""),
+          metric: toMetric(row.metric),
+        });
+      }
+    });
+    return grouped;
+  }
+
+  return fallbackTopLists;
+}
+
+function toMetric(value: unknown): number | null {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
 function HomePage({ topLists, loading, error }: { topLists: TopLists; loading: boolean; error: string | null }) {
   return (
     <section className="panel">
@@ -149,9 +209,9 @@ function HomePage({ topLists, loading, error }: { topLists: TopLists; loading: b
       {loading ? <div className="pill">Loading live data…</div> : null}
 
       <div className="grid three">
-        <TopList title="Top 10 rated" items={topLists.rating} metric="score" />
-        <TopList title="Top 10 popular" items={topLists.popularity} metric="popularity" />
-        <TopList title="Top 10 favorited" items={topLists.favorites} metric="favorites" />
+        <TopList title="Top 10 rated" items={topLists.rating} metricName="score" />
+        <TopList title="Top 10 popular" items={topLists.popularity} metricName="popularity" />
+        <TopList title="Top 10 favorited" items={topLists.favorites} metricName="favorites" />
       </div>
     </section>
   );
@@ -191,15 +251,15 @@ function SearchFilters() {
   );
 }
 
-function TopList({ title, items, metric }: { title: string; items: Anime[]; metric: "score" | "popularity" | "favorites" }) {
+function TopList({ title, items, metricName }: { title: string; items: TopAnime[]; metricName: "score" | "popularity" | "favorites" }) {
   return (
     <div className="card">
       <div className="card-title">{title}</div>
       <ol className="top-list">
         {items.map((anime) => (
-          <li key={anime.id}>
+          <li key={anime.anime_id}>
             <span>{anime.title}</span>
-            {anime[metric] ? <span className="metric">{metricLabel(metric, anime[metric])}</span> : null}
+            {anime.metric != null ? <span className="metric">{metricLabel(metricName, anime.metric)}</span> : null}
           </li>
         ))}
       </ol>
@@ -207,8 +267,8 @@ function TopList({ title, items, metric }: { title: string; items: Anime[]; metr
   );
 }
 
-function metricLabel(metric: "score" | "popularity" | "favorites", value: number | undefined) {
-  if (value === undefined) return "";
+function metricLabel(metric: "score" | "popularity" | "favorites", value: number | null) {
+  if (value === null || typeof value !== "number" || Number.isNaN(value)) return "";
   if (metric === "score") return value.toFixed(1);
   if (metric === "favorites") return value.toLocaleString();
   return `#${value}`;
@@ -220,12 +280,11 @@ function RankingPage() {
 
   const ranked = useMemo(
     () =>
-      fallbackTopLists.rating
-        .map((anime) => ({ ...anime, popularity: anime.popularity ?? 99 }))
+      fallbackTopLists[metric === "score" ? "rating" : metric === "popularity" ? "popularity" : "favorites"]
         .filter((anime) => anime.title.toLowerCase().includes(query.toLowerCase()))
         .sort((a, b) => {
-          const av = a[metric] ?? 0;
-          const bv = b[metric] ?? 0;
+          const av = a.metric ?? 0;
+          const bv = b.metric ?? 0;
           return metric === "popularity" ? av - bv : bv - av;
         }),
     [query, metric]
@@ -257,10 +316,10 @@ function RankingPage() {
         <div className="card-title">Results</div>
         <ul className="list">
           {ranked.map((anime, index) => (
-            <li key={anime.id} className="list-row">
+            <li key={anime.anime_id} className="list-row">
               <span className="rank">{index + 1}</span>
               <span>{anime.title}</span>
-              <span className="metric">{metricLabel(metric, anime[metric])}</span>
+              <span className="metric">{metricLabel(metric, anime.metric)}</span>
             </li>
           ))}
         </ul>
@@ -339,9 +398,9 @@ function RecommendPage() {
         <div className="card-title">Suggested picks</div>
         <ul className="list">
           {fallbackTopLists.rating.slice(0, 5).map((anime) => (
-            <li key={anime.id} className="list-row">
+            <li key={anime.anime_id} className="list-row">
               <span>{anime.title}</span>
-              <span className="metric">{metricLabel("score", anime.score)}</span>
+              <span className="metric">{metricLabel("score", anime.metric)}</span>
             </li>
           ))}
         </ul>
@@ -374,7 +433,7 @@ function GamePage() {
         {pair.map((anime) => (
           <div key={anime.id} className="card">
             <div className="card-title">{anime.title}</div>
-            <p className="metric">{metricLabel(factor, anime[factor])}</p>
+            <p className="metric">{metricLabel(factor, anime[factor] ?? null)}</p>
             <button type="button">This one</button>
           </div>
         ))}

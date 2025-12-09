@@ -2,6 +2,48 @@
 
 ---
 
+## Shared Types
+
+### Anime
+
+Represents a full row from the `anime` table. All routes that return complete anime records use this shape.
+
+- `anime_id` – integer  
+- `title` – string  
+- `synopsis` – string or null  
+- `main_pic` – string or null  
+- `type` – string (`anime_type_enum`)  
+- `source_type` – string (`source_type_enum`)  
+- `num_episodes` – integer or null  
+- `status` – string (`anime_status_enum`)  
+- `season` – string or null  
+- `score` – number or null (NUMERIC(4,2))  
+- `favorites_count` – integer or null  
+- `members_count` – integer or null  
+- `watching_count` – integer or null  
+- `completed_count` – integer or null  
+- `on_hold_count` – integer or null  
+- `dropped_count` – integer or null  
+- `plan_to_watch_count` – integer or null  
+- `score_10_count` – integer or null  
+- `score_9_count` – integer or null  
+- `score_8_count` – integer or null  
+- `score_7_count` – integer or null  
+- `score_6_count` – integer or null  
+- `score_5_count` – integer or null  
+- `score_4_count` – integer or null  
+- `score_3_count` – integer or null  
+- `score_2_count` – integer or null  
+- `score_1_count` – integer or null  
+
+### Enums
+
+- `anime_type_enum` values: `TV`, `Movie`, `OVA`, `ONA`, `Special`
+- `source_type_enum` values: `4-koma manga`, `Book`, `Card game`, `Game`, `Light novel`, `Manga`, `Mixed media`, `Music`, `Novel`, `Original`, `Other`, `Visual novel`, `Web manga`, `Web novel`
+- `anime_status_enum` values: `Currently Airing`, `Finished Airing`, `Not yet aired`
+
+---
+
 ## Route 1 – Search Anime with Filters
 
 **Route:** `/anime`  
@@ -37,92 +79,9 @@
 
 ### Response
 
-- **Return Type:** JSON Array of `Anime` objects
+- **Return Type:** JSON Array of `Anime`
 
-Each item in the array represents an anime row from the `anime` table.
-
-#### Return Parameters (per `Anime` object)
-
-- `anime_id` – **type:** integer  
-  Unique identifier of the anime (primary key).
-
-- `title` – **type:** string  
-  Title of the anime.
-
-- `synopsis` – **type:** string or null  
-  Text synopsis/description of the anime.
-
-- `main_pic` – **type:** string or null  
-  URL or path to the main picture/poster image for the anime.
-
-- `type` – **type:** string  
-  Anime type enum value (e.g. `"TV"`, `"Movie"`, `"OVA"`, etc.).
-
-- `source_type` – **type:** string  
-  Source material enum value (e.g. `"manga"`, `"light_novel"`, `"original"`).
-
-- `num_episodes` – **type:** integer or null  
-  Number of episodes for the anime (0 or null if unknown).
-
-- `status` – **type:** string  
-  Anime status enum value (e.g. `"finished_airing"`, `"currently_airing"`, `"not_yet_aired"`).
-
-- `season` – **type:** string or null  
-  Season string, typically including season name and year (e.g. `"Spring 2019"`).
-
-- `score` – **type:** number or null  
-  Average rating score for the anime, up to 2 decimal places (`NUMERIC(4,2)`).
-
-- `favorites_count` – **type:** integer or null  
-  Number of users who have marked this anime as a favorite.
-
-- `members_count` – **type:** integer or null  
-  Total number of users who have this anime in any of their lists.
-
-- `watching_count` – **type:** integer or null  
-  Number of users currently watching this anime.
-
-- `completed_count` – **type:** integer or null  
-  Number of users who have completed this anime.
-
-- `on_hold_count` – **type:** integer or null  
-  Number of users who have this anime on hold.
-
-- `dropped_count` – **type:** integer or null  
-  Number of users who have dropped this anime.
-
-- `plan_to_watch_count` – **type:** integer or null  
-  Number of users who plan to watch this anime.
-
-- `score_10_count` – **type:** integer or null  
-  Number of users who rated this anime 10.
-
-- `score_9_count` – **type:** integer or null  
-  Number of users who rated this anime 9.
-
-- `score_8_count` – **type:** integer or null  
-  Number of users who rated this anime 8.
-
-- `score_7_count` – **type:** integer or null  
-  Number of users who rated this anime 7.
-
-- `score_6_count` – **type:** integer or null  
-  Number of users who rated this anime 6.
-
-- `score_5_count` – **type:** integer or null  
-  Number of users who rated this anime 5.
-
-- `score_4_count` – **type:** integer or null  
-  Number of users who rated this anime 4.
-
-- `score_3_count` – **type:** integer or null  
-  Number of users who rated this anime 3.
-
-- `score_2_count` – **type:** integer or null  
-  Number of users who rated this anime 2.
-
-- `score_1_count` – **type:** integer or null  
-  Number of users who rated this anime 1.
+Each item is a full anime row (see `Anime` in Shared Types).
 
 ---
 
@@ -249,37 +208,7 @@ Each item in the array represents an anime row from the `anime` table.
 
 #### RecommendedAnime object
 
-Contains core anime fields plus recommendation metadata:
-
-- `anime_id` – **type:** integer  
-- `title` – **type:** string  
-- `synopsis` – **type:** string or null  
-- `main_pic` – **type:** string or null  
-- `type` – **type:** string  
-- `source_type` – **type:** string  
-- `num_episodes` – **type:** integer or null  
-- `status` – **type:** string  
-- `season` – **type:** string or null  
-- `score` – **type:** number or null  
-- `favorites_count` – **type:** integer or null  
-- `members_count` – **type:** integer or null  
-- `watching_count` – **type:** integer or null  
-- `completed_count` – **type:** integer or null  
-- `on_hold_count` – **type:** integer or null  
-- `dropped_count` – **type:** integer or null  
-- `plan_to_watch_count` – **type:** integer or null  
-- `score_10_count` – **type:** integer or null  
-- `score_9_count` – **type:** integer or null  
-- `score_8_count` – **type:** integer or null  
-- `score_7_count` – **type:** integer or null  
-- `score_6_count` – **type:** integer or null  
-- `score_5_count` – **type:** integer or null  
-- `score_4_count` – **type:** integer or null  
-- `score_3_count` – **type:** integer or null  
-- `score_2_count` – **type:** integer or null  
-- `score_1_count` – **type:** integer or null  
-
-Additional field:
+Contains all `Anime` fields plus:
 
 - `votes` – **type:** integer  
   Number of recommenders for this recommendation (`num_recommenders`).
@@ -600,3 +529,26 @@ Top-level correlation fields:
 
 - `name` – **type:** string  
   Genre name.
+
+---
+
+## Route 13 – Get Anime by ID
+
+**Route:** `/anime/:id`  
+**Method:** `GET`  
+**Description:** Returns the full anime record for the given `anime_id`.
+
+### Route Parameters
+
+- `id` – **type:** integer (required, path)  
+  Anime ID. Maps to `:id`.
+
+### Query Parameters
+
+- **Query Parameter(s):** None
+
+### Response
+
+- **Return Type:** `Anime`
+
+Returns the full anime row (see `Anime` in Shared Types).
