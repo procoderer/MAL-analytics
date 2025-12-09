@@ -1,19 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { RankingMetric, TopAnime, TopListsResponse } from "./types";
 
-// Matches TopAnime shape from the API doc: anime_id, title, metric
-type TopAnime = {
-  anime_id: number;
-  title: string;
-  metric: number | null;
-};
-
-type TopLists = {
-  rating: TopAnime[];
-  popularity: TopAnime[];
-  favorites: TopAnime[];
-};
-
-const fallbackTopLists: TopLists = {
+const fallbackTopLists: TopListsResponse = {
   rating: [
     { anime_id: 1, title: "Fullmetal Alchemist: Brotherhood", metric: 9.1 },
     { anime_id: 2, title: "Gintama°", metric: 9.0 },
@@ -55,19 +43,19 @@ const fallbackTopLists: TopLists = {
 type GameAnime = {
   id: string;
   title: string;
-  score?: number;
+  rating?: number;
   popularity?: number;
   favorites?: number;
 };
 
 const gamePairs: GameAnime[][] = [
   [
-    { id: "g1", title: "Demon Slayer", score: 8.5, popularity: 7 },
-    { id: "g2", title: "Attack on Titan", score: 9.0, popularity: 1 },
+    { id: "g1", title: "Demon Slayer", rating: 8.5, popularity: 7 },
+    { id: "g2", title: "Attack on Titan", rating: 9.0, popularity: 1 },
   ],
   [
-    { id: "g3", title: "Naruto", score: 7.9, popularity: 5 },
-    { id: "g4", title: "Bleach", score: 8.1, popularity: 6 },
+    { id: "g3", title: "Naruto", rating: 7.9, popularity: 5 },
+    { id: "g4", title: "Bleach", rating: 8.1, popularity: 6 },
   ],
 ];
 
@@ -75,7 +63,7 @@ const tabs = ["Home", "Ranking", "Analytics", "Recommend", "Game"] as const;
 type Tab = (typeof tabs)[number];
 
 export default function App() {
-  const [topLists, setTopLists] = useState<TopLists>(fallbackTopLists);
+  const [topLists, setTopLists] = useState<TopListsResponse>(fallbackTopLists);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Home");
@@ -137,7 +125,7 @@ export default function App() {
   );
 }
 
-function normalizeTopLists(data: unknown): TopLists {
+function normalizeTopLists(data: unknown): TopListsResponse {
   // Preferred shape per api.md: { rating: TopAnime[], popularity: TopAnime[], favorites: TopAnime[] }
   if (
     data &&
@@ -146,7 +134,7 @@ function normalizeTopLists(data: unknown): TopLists {
     "popularity" in data &&
     "favorites" in data
   ) {
-    const obj = data as { rating: TopAnime[]; popularity: TopAnime[]; favorites: TopAnime[] };
+    const obj = data as TopListsResponse;
     return {
       rating: (obj.rating ?? []).map((a) => ({
         anime_id: a.anime_id,
@@ -168,11 +156,11 @@ function normalizeTopLists(data: unknown): TopLists {
 
   // Fallback to grouping array rows with a `list` discriminator (what the backend currently returns)
   if (Array.isArray(data)) {
-    const grouped: TopLists = { rating: [], popularity: [], favorites: [] };
+    const grouped: TopListsResponse = { rating: [], popularity: [], favorites: [] };
     data.forEach((row: any) => {
       const list = row?.list;
       if (list === "rating" || list === "popularity" || list === "favorites") {
-        const key: keyof TopLists = list;
+        const key: keyof TopListsResponse = list;
         grouped[key].push({
           anime_id: Number(row.anime_id),
           title: String(row.title ?? ""),
@@ -191,7 +179,7 @@ function toMetric(value: unknown): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
-function HomePage({ topLists, loading, error }: { topLists: TopLists; loading: boolean; error: string | null }) {
+function HomePage({ topLists, loading, error }: { topLists: TopListsResponse; loading: boolean; error: string | null }) {
   return (
     <section className="panel">
       <header className="panel-header">
@@ -209,7 +197,7 @@ function HomePage({ topLists, loading, error }: { topLists: TopLists; loading: b
       {loading ? <div className="pill">Loading live data…</div> : null}
 
       <div className="grid three">
-        <TopList title="Top 10 rated" items={topLists.rating} metricName="score" />
+        <TopList title="Top 10 rated" items={topLists.rating} metricName="rating" />
         <TopList title="Top 10 popular" items={topLists.popularity} metricName="popularity" />
         <TopList title="Top 10 favorited" items={topLists.favorites} metricName="favorites" />
       </div>
@@ -251,7 +239,7 @@ function SearchFilters() {
   );
 }
 
-function TopList({ title, items, metricName }: { title: string; items: TopAnime[]; metricName: "score" | "popularity" | "favorites" }) {
+function TopList({ title, items, metricName }: { title: string; items: TopAnime[]; metricName: RankingMetric }) {
   return (
     <div className="card">
       <div className="card-title">{title}</div>
@@ -267,20 +255,20 @@ function TopList({ title, items, metricName }: { title: string; items: TopAnime[
   );
 }
 
-function metricLabel(metric: "score" | "popularity" | "favorites", value: number | null) {
+function metricLabel(metric: RankingMetric, value: number | null) {
   if (value === null || typeof value !== "number" || Number.isNaN(value)) return "";
-  if (metric === "score") return value.toFixed(1);
+  if (metric === "rating") return value.toFixed(1);
   if (metric === "favorites") return value.toLocaleString();
   return `#${value}`;
 }
 
 function RankingPage() {
   const [query, setQuery] = useState("");
-  const [metric, setMetric] = useState<"score" | "popularity" | "favorites">("score");
+  const [metric, setMetric] = useState<RankingMetric>("rating");
 
   const ranked = useMemo(
     () =>
-      fallbackTopLists[metric === "score" ? "rating" : metric === "popularity" ? "popularity" : "favorites"]
+      fallbackTopLists[metric]
         .filter((anime) => anime.title.toLowerCase().includes(query.toLowerCase()))
         .sort((a, b) => {
           const av = a.metric ?? 0;
@@ -305,7 +293,7 @@ function RankingPage() {
             placeholder="Search anime"
           />
           <select value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)}>
-            <option value="score">Rating</option>
+            <option value="rating">Rating</option>
             <option value="popularity">Popularity</option>
             <option value="favorites">Favoritism</option>
           </select>
@@ -400,7 +388,7 @@ function RecommendPage() {
           {fallbackTopLists.rating.slice(0, 5).map((anime) => (
             <li key={anime.anime_id} className="list-row">
               <span>{anime.title}</span>
-              <span className="metric">{metricLabel("score", anime.metric)}</span>
+              <span className="metric">{metricLabel("rating", anime.metric)}</span>
             </li>
           ))}
         </ul>
@@ -410,7 +398,7 @@ function RecommendPage() {
 }
 
 function GamePage() {
-  const [factor, setFactor] = useState<"score" | "popularity" | "favorites">("score");
+  const [factor, setFactor] = useState<RankingMetric>("rating");
   const [round, setRound] = useState(0);
   const pair = gamePairs[round % gamePairs.length];
 
@@ -423,7 +411,7 @@ function GamePage() {
           <p className="subtitle">Choose the metric and make your guess.</p>
         </div>
         <select value={factor} onChange={(e) => setFactor(e.target.value as typeof factor)}>
-          <option value="score">Rating</option>
+          <option value="rating">Rating</option>
           <option value="popularity">Popularity</option>
           <option value="favorites">Favoritism</option>
         </select>
