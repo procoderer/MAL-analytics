@@ -1180,14 +1180,50 @@ function RecommendPage() {
   );
 }
 
+type GameMode = "rating" | "popularity" | "favorites";
+
 function GamePage() {
+  const [gameMode, setGameMode] = useState<GameMode>("rating");
+  const [gameStarted, setGameStarted] = useState(false);
   const [animeA, setAnimeA] = useState<GameAnime | null>(null);
   const [animeB, setAnimeB] = useState<GameAnime | null>(null);
   const [gameState, setGameState] = useState<GameState>("playing");
   const [score, setScore] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastChoice, setLastChoice] = useState<"correct" | "wrong" | null>(null);
+
+  const getModeLabel = (mode: GameMode) => {
+    switch (mode) {
+      case "rating": return "higher score";
+      case "popularity": return "more members";
+      case "favorites": return "more favorites";
+    }
+  };
+
+  const getModeTitle = (mode: GameMode) => {
+    switch (mode) {
+      case "rating": return "Which anime has a higher score?";
+      case "popularity": return "Which anime is more popular?";
+      case "favorites": return "Which anime has more favorites?";
+    }
+  };
+
+  const getValueForMode = (anime: GameAnime, mode: GameMode): number => {
+    switch (mode) {
+      case "rating": return Number(anime.score) || 0;
+      case "popularity": return Number(anime.members_count) || 0;
+      case "favorites": return Number(anime.favorites_count) || 0;
+    }
+  };
+
+  const formatValueForMode = (anime: GameAnime, mode: GameMode): string => {
+    switch (mode) {
+      case "rating": return Number(anime.score).toFixed(2);
+      case "popularity": return Number(anime.members_count).toLocaleString();
+      case "favorites": return Number(anime.favorites_count).toLocaleString();
+    }
+  };
 
   const fetchNewPair = () => {
     setLoading(true);
@@ -1221,26 +1257,27 @@ function GamePage() {
       });
   };
 
-  useEffect(() => {
+  const handleStartGame = () => {
+    setGameStarted(true);
+    setScore(0);
     fetchNewPair();
-  }, []);
+  };
 
   const handleChoice = (choice: "A" | "B") => {
     if (gameState !== "playing" || !animeA || !animeB) return;
 
-    const scoreA = animeA.score ?? 0;
-    const scoreB = animeB.score ?? 0;
+    const valueA = getValueForMode(animeA, gameMode);
+    const valueB = getValueForMode(animeB, gameMode);
 
     const isCorrect =
-      (choice === "A" && scoreA >= scoreB) ||
-      (choice === "B" && scoreB >= scoreA);
+      (choice === "A" && valueA >= valueB) ||
+      (choice === "B" && valueB >= valueA);
 
     setLastChoice(isCorrect ? "correct" : "wrong");
 
     if (isCorrect) {
       setGameState("revealed");
       setScore((s) => s + 1);
-      // Auto-advance after showing the result
       setTimeout(() => {
         fetchNewPair();
       }, 1500);
@@ -1254,13 +1291,88 @@ function GamePage() {
     fetchNewPair();
   };
 
+  const handleBackToMenu = () => {
+    setGameStarted(false);
+    setAnimeA(null);
+    setAnimeB(null);
+    setGameState("playing");
+    setScore(0);
+    setError(null);
+  };
+
+  // Start menu - select game mode
+  if (!gameStarted) {
+    return (
+      <section className="panel">
+        <header className="panel-header">
+          <div>
+            <p className="eyebrow">Higher or Lower</p>
+            <h1>Anime Guessing Game</h1>
+            <p className="subtitle">Test your anime knowledge! Guess which anime has the higher stat.</p>
+          </div>
+        </header>
+
+        <div className="game-menu">
+          <div className="game-menu-card">
+            <p className="game-menu-label">Select Game Mode</p>
+
+            <div className="game-mode-options">
+              <label className={`game-mode-option ${gameMode === "rating" ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="gameMode"
+                  value="rating"
+                  checked={gameMode === "rating"}
+                  onChange={() => setGameMode("rating")}
+                />
+                <span className="game-mode-icon">★</span>
+                <span className="game-mode-name">Rating</span>
+                <span className="game-mode-desc">Guess the higher MAL score</span>
+              </label>
+
+              <label className={`game-mode-option ${gameMode === "popularity" ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="gameMode"
+                  value="popularity"
+                  checked={gameMode === "popularity"}
+                  onChange={() => setGameMode("popularity")}
+                />
+                <span className="game-mode-icon">👥</span>
+                <span className="game-mode-name">Popularity</span>
+                <span className="game-mode-desc">Guess more members</span>
+              </label>
+
+              <label className={`game-mode-option ${gameMode === "favorites" ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="gameMode"
+                  value="favorites"
+                  checked={gameMode === "favorites"}
+                  onChange={() => setGameMode("favorites")}
+                />
+                <span className="game-mode-icon">❤</span>
+                <span className="game-mode-name">Favorites</span>
+                <span className="game-mode-desc">Guess more favorites</span>
+              </label>
+            </div>
+
+            <button type="button" onClick={handleStartGame}>
+              Start Game
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (loading) {
     return (
       <section className="panel">
         <header className="panel-header">
           <div>
             <p className="eyebrow">Higher or Lower</p>
-            <h1>Which anime has a higher score?</h1>
+            <h1>{getModeTitle(gameMode)}</h1>
           </div>
         </header>
         <div className="game-loading">
@@ -1276,12 +1388,15 @@ function GamePage() {
         <header className="panel-header">
           <div>
             <p className="eyebrow">Higher or Lower</p>
-            <h1>Which anime has a higher score?</h1>
+            <h1>{getModeTitle(gameMode)}</h1>
           </div>
         </header>
         <div className="callout">{error || "Failed to load anime pair. Please try again."}</div>
         <button type="button" onClick={fetchNewPair}>
           Try Again
+        </button>
+        <button type="button" className="secondary" onClick={handleBackToMenu} style={{ marginLeft: "0.5rem" }}>
+          Back to Menu
         </button>
       </section>
     );
@@ -1316,18 +1431,23 @@ function GamePage() {
           <div className="game-result-reveal">
             <div className="game-reveal-card">
               <p className="game-reveal-title">{animeA?.title}</p>
-              <p className="game-reveal-score">{Number(animeA?.score).toFixed(2)}</p>
+              <p className="game-reveal-score">{formatValueForMode(animeA, gameMode)}</p>
             </div>
             <span className="game-vs">vs</span>
             <div className="game-reveal-card">
               <p className="game-reveal-title">{animeB?.title}</p>
-              <p className="game-reveal-score">{Number(animeB?.score).toFixed(2)}</p>
+              <p className="game-reveal-score">{formatValueForMode(animeB, gameMode)}</p>
             </div>
           </div>
 
-          <button type="button" onClick={handlePlayAgain}>
-            Play Again
-          </button>
+          <div className="game-over-buttons">
+            <button type="button" onClick={handlePlayAgain}>
+              Play Again
+            </button>
+            <button type="button" className="secondary" onClick={handleBackToMenu}>
+              Change Mode
+            </button>
+          </div>
         </div>
       </section>
     );
@@ -1337,9 +1457,9 @@ function GamePage() {
     <section className="panel">
       <header className="panel-header">
         <div>
-          <p className="eyebrow">Higher or Lower</p>
-          <h1>Which anime has a higher score?</h1>
-          <p className="subtitle">Click on the anime you think has the higher MAL rating.</p>
+          <p className="eyebrow">Higher or Lower • {gameMode === "rating" ? "Rating" : gameMode === "popularity" ? "Popularity" : "Favorites"}</p>
+          <h1>{getModeTitle(gameMode)}</h1>
+          <p className="subtitle">Click on the anime you think has the {getModeLabel(gameMode)}.</p>
         </div>
         <div className="game-score-display">
           <span className="game-score-label">Score</span>
@@ -1362,7 +1482,7 @@ function GamePage() {
             <h2 className="game-card-title">{animeA?.title}</h2>
             {gameState === "revealed" && (
               <div className="game-card-score">
-                <span className="game-score-number">{Number(animeA?.score).toFixed(2)}</span>
+                <span className="game-score-number">{formatValueForMode(animeA, gameMode)}</span>
               </div>
             )}
             {gameState === "playing" && (
@@ -1385,7 +1505,7 @@ function GamePage() {
             <h2 className="game-card-title">{animeB?.title}</h2>
             {gameState === "revealed" && (
               <div className="game-card-score">
-                <span className="game-score-number">{Number(animeB?.score).toFixed(2)}</span>
+                <span className="game-score-number">{formatValueForMode(animeB, gameMode)}</span>
               </div>
             )}
             {gameState === "playing" && (
