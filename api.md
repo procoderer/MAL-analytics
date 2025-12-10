@@ -145,6 +145,9 @@ Each item is a full anime row (see `Anime` in Shared Types).
 - `limit` – **type:** integer (required, query)
   Maximum number of anime to return. Maps to `:limit`.
 
+- `offset` – **type:** integer (optional, query)  
+  Number of rows to skip before returning results. Must be non-negative. Defaults to 0. Maps to `:offset`.
+
 ### Response
 
 - **Return Type:** JSON Array of `RankedAnime`

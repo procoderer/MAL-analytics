@@ -146,6 +146,13 @@ def create_app() -> Flask:
         except (KeyError, ValueError):
             return jsonify({"error": "limit is required and must be a positive integer"}), 400
 
+        try:
+            offset = int(request.args.get("offset", 0))
+            if offset < 0:
+                raise ValueError()
+        except ValueError:
+            return jsonify({"error": "offset must be a non-negative integer"}), 400
+
         query = """
         SELECT a.anime_id, a.title, a.score, a.favorites_count, a.members_count
         FROM anime a
@@ -156,10 +163,11 @@ def create_app() -> Flask:
             WHEN 'favorites' THEN a.favorites_count::decimal
           END DESC NULLS LAST,
           a.members_count DESC NULLS LAST
-        LIMIT %(limit)s;
+        LIMIT %(limit)s
+        OFFSET %(offset)s;
         """
         with get_conn() as conn, conn.cursor() as cur:
-            cur.execute(query, {"metric": metric, "limit": limit})
+            cur.execute(query, {"metric": metric, "limit": limit, "offset": offset})
             rows = cur.fetchall()
             return jsonify(rows)
 
