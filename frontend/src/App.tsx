@@ -41,23 +41,14 @@ const fallbackTopLists: TopListsResponse = {
 };
 
 type GameAnime = {
-  id: string;
+  anime_id: number;
   title: string;
-  rating?: number;
-  popularity?: number;
-  favorites?: number;
+  score: number | null;
+  members_count: number | null;
+  favorites_count: number | null;
 };
 
-const gamePairs: GameAnime[][] = [
-  [
-    { id: "g1", title: "Demon Slayer", rating: 8.5, popularity: 7 },
-    { id: "g2", title: "Attack on Titan", rating: 9.0, popularity: 1 },
-  ],
-  [
-    { id: "g3", title: "Naruto", rating: 7.9, popularity: 5 },
-    { id: "g4", title: "Bleach", rating: 8.1, popularity: 6 },
-  ],
-];
+type GameState = "playing" | "revealed" | "gameover";
 
 const tabs = ["Home", "Ranking", "Analytics", "Recommend", "Game"] as const;
 type Tab = (typeof tabs)[number];
@@ -662,7 +653,166 @@ function SequelStatsView({ data }: { data: SequelStats }) {
   );
 }
 
+type Genre = {
+  genre_id: number;
+  name: string;
+};
+
+type SearchAnime = {
+  anime_id: number;
+  title: string;
+  score: number | null;
+};
+
+type RecommendedAnime = {
+  anime_id: number;
+  title: string;
+  score: number | null;
+  votes: number;
+  num_episodes: number | null;
+};
+
 function RecommendPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchAnime[]>([]);
+  const [selectedAnime, setSelectedAnime] = useState<SearchAnime | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState<string>("");
+  const [selectedEra, setSelectedEra] = useState<string>("");
+  const [excludeSequels, setExcludeSequels] = useState(false);
+  const [highRatingOnly, setHighRatingOnly] = useState(false);
+  const [shortSeriesOnly, setShortSeriesOnly] = useState(false);
+
+  const [recommendations, setRecommendations] = useState<RecommendedAnime[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch genres on mount
+  useEffect(() => {
+    fetch("/api/genres")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setGenres(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Search anime as user types
+  useEffect(() => {
+    if (searchQuery.length < 2 || selectedAnime) {
+      if (searchQuery.length < 2) {
+        setSearchResults([]);
+        setShowDropdown(false);
+      }
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setSearching(true);
+      fetch(`/api/anime/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setSearchResults(data);
+            setShowDropdown(data.length > 0);
+          }
+        })
+        .catch((err) => {
+          console.error("Search error:", err);
+          setSearchResults([]);
+        })
+        .finally(() => setSearching(false));
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, selectedAnime]);
+
+  const handleSelectAnime = (anime: SearchAnime) => {
+    setSelectedAnime(anime);
+    setSearchQuery(anime.title);
+    setShowDropdown(false);
+  };
+
+  const handleGetRecommendations = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedAnime) {
+      setError("Please select an anime from the dropdown first");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setRecommendations([]);
+
+    const params = new URLSearchParams();
+    params.set("limit", "20"); // Fetch more to allow for client-side filtering
+
+    if (selectedGenre) {
+      params.set("genre_ids", selectedGenre);
+    }
+
+    if (highRatingOnly) {
+      params.set("min_score", "8");
+    }
+
+    const url = `/api/anime/${selectedAnime.anime_id}/recommendations?${params.toString()}`;
+    console.log("Fetching recommendations:", url);
+
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Recommendations response:", data);
+        if (Array.isArray(data)) {
+          let results = data as RecommendedAnime[];
+
+          if (shortSeriesOnly) {
+            results = results.filter(
+              (a) => a.num_episodes != null && Number(a.num_episodes) <= 13
+            );
+          }
+
+          // Exclude sequels by title patterns
+          if (excludeSequels) {
+            results = results.filter(
+              (a) =>
+                !/(season\s*[2-9]|part\s*[2-9]|\s+2nd|\s+3rd|\s+II|:\s*[2-9])/i.test(
+                  a.title
+                )
+            );
+          }
+
+          const finalResults = results.slice(0, 5);
+          setRecommendations(finalResults);
+
+          if (finalResults.length === 0) {
+            if (data.length === 0) {
+              setError("No recommendations found for this anime. Try a different title.");
+            } else {
+              setError("No recommendations match your filters. Try adjusting your criteria.");
+            }
+          }
+        } else {
+          throw new Error("Invalid response format");
+        }
+      })
+      .catch((err) => {
+        console.error("Recommendations error:", err);
+        setError("Failed to get recommendations. Make sure the backend is running.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
   return (
     <section className="panel">
       <header className="panel-header">
@@ -673,78 +823,362 @@ function RecommendPage() {
         </div>
       </header>
 
-      <form className="card" onSubmit={(e) => e.preventDefault()}>
+      <form className="card recommend-form" onSubmit={handleGetRecommendations}>
         <div className="input-row">
-          <input placeholder="Type an anime title" />
-          <select>
-            <option>Any genre</option>
-            <option>Action</option>
-            <option>Drama</option>
-            <option>Romance</option>
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Type an anime title..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSelectedAnime(null);
+              }}
+              onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+            />
+            {showDropdown && searchResults.length > 0 && (
+              <ul className="search-dropdown">
+                {searchResults.map((anime) => (
+                  <li
+                    key={anime.anime_id}
+                    onMouseDown={() => handleSelectAnime(anime)}
+                  >
+                    <span className="dropdown-title">{anime.title}</span>
+                    {anime.score && (
+                      <span className="dropdown-score">
+                        {Number(anime.score).toFixed(1)}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {searching && <span className="search-spinner">...</span>}
+          </div>
+
+          <select
+            value={selectedGenre}
+            onChange={(e) => setSelectedGenre(e.target.value)}
+          >
+            <option value="">Any genre</option>
+            {genres.map((g) => (
+              <option key={g.genre_id} value={g.genre_id}>
+                {g.name}
+              </option>
+            ))}
           </select>
-          <select>
-            <option>Any era</option>
-            <option>2020s</option>
-            <option>2010s</option>
-            <option>2000s</option>
+
+          <select
+            value={selectedEra}
+            onChange={(e) => setSelectedEra(e.target.value)}
+          >
+            <option value="">Any era</option>
+            <option value="2020">2020s</option>
+            <option value="2010">2010s</option>
+            <option value="2000">2000s</option>
+            <option value="1990">1990s</option>
           </select>
         </div>
+
         <div className="checkbox-row">
-          <label><input type="checkbox" /> Exclude sequels</label>
-          <label><input type="checkbox" /> High rating only</label>
-          <label><input type="checkbox" /> Short series</label>
+          <label>
+            <input
+              type="checkbox"
+              checked={excludeSequels}
+              onChange={(e) => setExcludeSequels(e.target.checked)}
+            />
+            Exclude sequels
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={highRatingOnly}
+              onChange={(e) => setHighRatingOnly(e.target.checked)}
+            />
+            High rating only (8+)
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={shortSeriesOnly}
+              onChange={(e) => setShortSeriesOnly(e.target.checked)}
+            />
+            Short series (≤13 eps)
+          </label>
         </div>
-        <button type="submit">Get recommendations</button>
+
+        <button type="submit" disabled={loading || !selectedAnime}>
+          {loading ? "Loading..." : "Get recommendations"}
+        </button>
       </form>
 
+      {error && <div className="callout">{error}</div>}
+
+      {selectedAnime && (
+        <div className="selected-anime-card">
+          <span className="selected-label">Selected:</span>
+          <span className="selected-title">{selectedAnime.title}</span>
+          {selectedAnime.score && (
+            <span className="selected-score">
+              {Number(selectedAnime.score).toFixed(1)}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="card">
-        <div className="card-title">Suggested picks</div>
-        <ul className="list">
-          {fallbackTopLists.rating.slice(0, 5).map((anime) => (
-            <li key={anime.anime_id} className="list-row">
-              <span>{anime.title}</span>
-              <span className="metric">{metricLabel("rating", anime.metric)}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="card-title">
+          {recommendations.length > 0 ? "Recommended for you" : "Suggested picks"}
+        </div>
+        {loading ? (
+          <div className="pill">Finding recommendations...</div>
+        ) : (
+          <ul className="list">
+            {(recommendations.length > 0
+              ? recommendations
+              : fallbackTopLists.rating.slice(0, 5).map((a) => ({
+                  anime_id: a.anime_id,
+                  title: a.title,
+                  score: a.metric,
+                  votes: 0,
+                  num_episodes: null,
+                }))
+            ).map((anime, index) => (
+              <li key={anime.anime_id} className="recommend-row">
+                <span className="recommend-rank">{index + 1}</span>
+                <span className="recommend-title">{anime.title}</span>
+                <span className="recommend-score">
+                  {anime.score != null ? Number(anime.score).toFixed(1) : "N/A"}
+                </span>
+                {anime.votes > 0 && (
+                  <span className="recommend-votes">
+                    {anime.votes} votes
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );
 }
 
 function GamePage() {
-  const [factor, setFactor] = useState<RankingMetric>("rating");
-  const [round, setRound] = useState(0);
-  const pair = gamePairs[round % gamePairs.length];
+  const [animeA, setAnimeA] = useState<GameAnime | null>(null);
+  const [animeB, setAnimeB] = useState<GameAnime | null>(null);
+  const [gameState, setGameState] = useState<GameState>("playing");
+  const [score, setScore] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastChoice, setLastChoice] = useState<"correct" | "wrong" | null>(null);
+
+  const fetchNewPair = () => {
+    setLoading(true);
+    setError(null);
+    setLastChoice(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    fetch("/api/anime/compare/random-pair", { signal: controller.signal })
+      .then((res) => {
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error("Failed to fetch");
+        return res.json();
+      })
+      .then((data) => {
+        if (data.A && data.B && data.A.score != null && data.B.score != null) {
+          setAnimeA(data.A);
+          setAnimeB(data.B);
+          setGameState("playing");
+          setLoading(false);
+        } else {
+          throw new Error("Invalid data from API");
+        }
+      })
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        console.error("Game fetch error:", err);
+        setError("Failed to load anime pair. Make sure the backend is running.");
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchNewPair();
+  }, []);
+
+  const handleChoice = (choice: "A" | "B") => {
+    if (gameState !== "playing" || !animeA || !animeB) return;
+
+    const scoreA = animeA.score ?? 0;
+    const scoreB = animeB.score ?? 0;
+
+    const isCorrect =
+      (choice === "A" && scoreA >= scoreB) ||
+      (choice === "B" && scoreB >= scoreA);
+
+    setLastChoice(isCorrect ? "correct" : "wrong");
+
+    if (isCorrect) {
+      setGameState("revealed");
+      setScore((s) => s + 1);
+      // Auto-advance after showing the result
+      setTimeout(() => {
+        fetchNewPair();
+      }, 1500);
+    } else {
+      setGameState("gameover");
+    }
+  };
+
+  const handlePlayAgain = () => {
+    setScore(0);
+    fetchNewPair();
+  };
+
+  if (loading) {
+    return (
+      <section className="panel">
+        <header className="panel-header">
+          <div>
+            <p className="eyebrow">Higher or Lower</p>
+            <h1>Which anime has a higher score?</h1>
+          </div>
+        </header>
+        <div className="game-loading">
+          <div className="pill">Loading anime...</div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error || !animeA || !animeB) {
+    return (
+      <section className="panel">
+        <header className="panel-header">
+          <div>
+            <p className="eyebrow">Higher or Lower</p>
+            <h1>Which anime has a higher score?</h1>
+          </div>
+        </header>
+        <div className="callout">{error || "Failed to load anime pair. Please try again."}</div>
+        <button type="button" onClick={fetchNewPair}>
+          Try Again
+        </button>
+      </section>
+    );
+  }
+
+  if (gameState === "gameover") {
+    return (
+      <section className="panel">
+        <header className="panel-header">
+          <div>
+            <p className="eyebrow">Game Over</p>
+            <h1>You Lose!</h1>
+            <p className="subtitle">Better luck next time.</p>
+          </div>
+        </header>
+
+        <div className="game-over-container">
+          <div className="game-over-card">
+            <p className="game-over-label">Final Score</p>
+            <p className="game-over-score">{score}</p>
+            <p className="game-over-subtitle">
+              {score === 0
+                ? "Oops! Try again?"
+                : score < 5
+                ? "Not bad!"
+                : score < 10
+                ? "Great job!"
+                : "Amazing!"}
+            </p>
+          </div>
+
+          <div className="game-result-reveal">
+            <div className="game-reveal-card">
+              <p className="game-reveal-title">{animeA?.title}</p>
+              <p className="game-reveal-score">{Number(animeA?.score).toFixed(2)}</p>
+            </div>
+            <span className="game-vs">vs</span>
+            <div className="game-reveal-card">
+              <p className="game-reveal-title">{animeB?.title}</p>
+              <p className="game-reveal-score">{Number(animeB?.score).toFixed(2)}</p>
+            </div>
+          </div>
+
+          <button type="button" onClick={handlePlayAgain}>
+            Play Again
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">
       <header className="panel-header">
         <div>
-          <p className="eyebrow">Guessing Game</p>
-          <h1>Which anime wins?</h1>
-          <p className="subtitle">Choose the metric and make your guess.</p>
+          <p className="eyebrow">Higher or Lower</p>
+          <h1>Which anime has a higher score?</h1>
+          <p className="subtitle">Click on the anime you think has the higher MAL rating.</p>
         </div>
-        <select value={factor} onChange={(e) => setFactor(e.target.value as typeof factor)}>
-          <option value="rating">Rating</option>
-          <option value="popularity">Popularity</option>
-          <option value="favorites">Favoritism</option>
-        </select>
+        <div className="game-score-display">
+          <span className="game-score-label">Score</span>
+          <span className="game-score-value">{score}</span>
+        </div>
       </header>
 
-      <div className="grid two game-grid">
-        {pair.map((anime) => (
-          <div key={anime.id} className="card">
-            <div className="card-title">{anime.title}</div>
-            <p className="metric">{metricLabel(factor, anime[factor] ?? null)}</p>
-            <button type="button">This one</button>
-          </div>
-        ))}
-      </div>
+      {lastChoice === "correct" && (
+        <div className="game-feedback correct">Correct! +1 point</div>
+      )}
 
-      <button type="button" onClick={() => setRound((r) => r + 1)} className="secondary">
-        Next matchup
-      </button>
+      <div className="game-container">
+        <button
+          type="button"
+          className={`game-card ${gameState === "revealed" ? "revealed" : ""}`}
+          onClick={() => handleChoice("A")}
+          disabled={gameState !== "playing"}
+        >
+          <div className="game-card-content">
+            <h2 className="game-card-title">{animeA?.title}</h2>
+            {gameState === "revealed" && (
+              <div className="game-card-score">
+                <span className="game-score-number">{Number(animeA?.score).toFixed(2)}</span>
+              </div>
+            )}
+            {gameState === "playing" && (
+              <div className="game-card-prompt">Click to choose</div>
+            )}
+          </div>
+        </button>
+
+        <div className="game-vs-divider">
+          <span>VS</span>
+        </div>
+
+        <button
+          type="button"
+          className={`game-card ${gameState === "revealed" ? "revealed" : ""}`}
+          onClick={() => handleChoice("B")}
+          disabled={gameState !== "playing"}
+        >
+          <div className="game-card-content">
+            <h2 className="game-card-title">{animeB?.title}</h2>
+            {gameState === "revealed" && (
+              <div className="game-card-score">
+                <span className="game-score-number">{Number(animeB?.score).toFixed(2)}</span>
+              </div>
+            )}
+            {gameState === "playing" && (
+              <div className="game-card-prompt">Click to choose</div>
+            )}
+          </div>
+        </button>
+      </div>
     </section>
   );
 }

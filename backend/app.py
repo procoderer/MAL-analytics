@@ -94,6 +94,42 @@ def create_app() -> Flask:
             rows = cur.fetchall()
             return jsonify(rows)
 
+    # Route 1b – Search Anime by Title
+    @app.get("/api/anime/search")
+    def search_anime_by_title():
+        query_str = request.args.get("q", "").strip()
+        if len(query_str) < 2:
+            return jsonify([])
+
+        limit = request.args.get("limit", "10")
+        try:
+            limit = int(limit)
+            if limit <= 0 or limit > 50:
+                limit = 10
+        except ValueError:
+            limit = 10
+
+        query = """
+        SELECT a.anime_id, a.title, a.score, a.num_episodes
+        FROM anime a
+        WHERE LOWER(a.title) LIKE LOWER(%(pattern)s)
+        ORDER BY
+          CASE WHEN LOWER(a.title) LIKE LOWER(%(starts_with)s) THEN 0 ELSE 1 END,
+          a.members_count DESC NULLS LAST
+        LIMIT %(limit)s;
+        """
+
+        params = {
+            "pattern": f"%{query_str}%",
+            "starts_with": f"{query_str}%",
+            "limit": limit,
+        }
+
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            return jsonify(rows)
+
     # Route 2 – Top Lists by Rating, Popularity, and Favorites
     @app.get("/api/anime/top-lists")
     def top_lists():
@@ -166,42 +202,22 @@ def create_app() -> Flask:
     # Route 4 – Recommendations from Recommendation Table + Filters
     @app.get("/api/anime/<int:seed_id>/recommendations")
     def recommendations(seed_id: int):
-        # Accepts: season, type, source_type, min_score, max_score, genre_ids, limit
+        # Accepts: min_score, limit
         try:
-            limit = int(request.args["limit"])
+            limit = int(request.args.get("limit", 10))
             if limit <= 0:
-                raise ValueError()
-        except (KeyError, ValueError):
-            return jsonify({"error": "limit is required and must be a positive integer"}), 400
+                limit = 10
+        except ValueError:
+            limit = 10
 
-        season = request.args.get("season")
-        anime_type = request.args.get("type")
-        source_type = request.args.get("source_type")
-
-        def _get_float_arg(name: str):
-            if name not in request.args:
-                return None
+        min_score = None
+        if "min_score" in request.args:
             try:
-                return float(request.args.get(name))
+                min_score = float(request.args.get("min_score"))
             except (TypeError, ValueError):
-                return None
+                pass
 
-        min_score = _get_float_arg("min_score")
-        max_score = _get_float_arg("max_score")
-
-        raw_genre_ids = request.args.getlist("genre_ids")
-        genre_ids = None
-        if raw_genre_ids:
-            parts = []
-            for item in raw_genre_ids:
-                parts.extend(item.split(","))
-            try:
-                genre_ids = [int(gid) for gid in parts if str(gid).strip() != ""]
-            except ValueError:
-                return jsonify({"error": "genre_ids must be integers"}), 400
-            if not genre_ids:
-                genre_ids = None
-
+        # Simplified query - just get recommendations without complex filtering
         query = """
         WITH recs AS (
           SELECT
@@ -209,43 +225,33 @@ def create_app() -> Flask:
               WHEN r.anime_id_a = %(seed_id)s THEN r.anime_id_b
               ELSE r.anime_id_a
             END AS rec_id,
-            r.num_recommenders AS votes
+            MAX(r.num_recommenders) AS votes
           FROM recommendation r
           WHERE r.anime_id_a = %(seed_id)s OR r.anime_id_b = %(seed_id)s
+          GROUP BY rec_id
         )
-        SELECT a.*, recs.votes
+        SELECT a.anime_id, a.title, a.score, a.num_episodes, recs.votes
         FROM recs
         JOIN anime a ON a.anime_id = recs.rec_id
-        LEFT JOIN anime_genre ag ON ag.anime_id = a.anime_id
-        WHERE (%(season)s IS NULL OR a.season = %(season)s)
-          AND (%(type)s IS NULL OR a.type = %(type)s)
-          AND (%(source_type)s IS NULL OR a.source_type = %(source_type)s)
-          AND (%(min_score)s IS NULL OR a.score >= %(min_score)s)
-          AND (%(max_score)s IS NULL OR a.score <= %(max_score)s)
-        GROUP BY a.anime_id, recs.votes
-        HAVING
-          (%(genre_ids)s IS NULL OR
-           COUNT(DISTINCT CASE WHEN ag.genre_id = ANY(%(genre_ids)s) THEN ag.genre_id END)
-           = COALESCE(cardinality(%(genre_ids)s), 0))
-        ORDER BY recs.votes DESC, a.score DESC NULLS LAST, a.members_count DESC NULLS LAST
+        WHERE (%(min_score)s IS NULL OR a.score >= %(min_score)s)
+        ORDER BY recs.votes DESC, a.score DESC NULLS LAST
         LIMIT %(limit)s;
         """
 
         params = {
             "seed_id": seed_id,
-            "season": season,
-            "type": anime_type,
-            "source_type": source_type,
             "min_score": min_score,
-            "max_score": max_score,
-            "genre_ids": genre_ids,
             "limit": limit,
         }
 
-        with get_conn() as conn, conn.cursor() as cur:
-            cur.execute(query, params)
-            rows = cur.fetchall()
-            return jsonify(rows)
+        try:
+            with get_conn() as conn, conn.cursor() as cur:
+                cur.execute(query, params)
+                rows = cur.fetchall()
+                return jsonify(rows)
+        except Exception as e:
+            print(f"Recommendations error: {e}")
+            return jsonify({"error": str(e)}), 500
 
     # Route 5 – Similar Anime by Overlapping Genres and Studios
     @app.get("/api/anime/<int:seed_id>/similar")
@@ -633,7 +639,7 @@ def create_app() -> Flask:
     @app.get("/api/genres")
     def list_genres():
         query = """
-        SELECT DISTINCT g.name
+        SELECT g.genre_id, g.name
         FROM genre g
         ORDER BY g.name;
         """
