@@ -117,6 +117,71 @@ h1 {
   gap: 1rem;
 }
 
+/* Accordion styles */
+.accordion-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.accordion {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.accordion:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.accordion-header {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: #e9ecf5;
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s ease;
+}
+
+.accordion-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.accordion-icon {
+  font-size: 1.25rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.6);
+  transition: transform 0.2s ease;
+}
+
+.accordion-open .accordion-icon {
+  transform: rotate(0deg);
+}
+
+.accordion-content {
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 0.5rem;
+  padding-top: 1.25rem;
+}
+
+.muted {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+}
+
 .grid.two {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
@@ -265,7 +330,6 @@ button.secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .stat-card {
@@ -293,6 +357,180 @@ button.secondary {
   text-align: center;
 }
 
+/* Volatile ratings table styles */
+.volatile-table {
+  width: 100%;
+}
+
+.volatile-header {
+  display: grid;
+  grid-template-columns: 50px 1fr 100px 100px 120px;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.volatile-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 100px 100px 120px;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.volatile-row:last-child {
+  border-bottom: none;
+}
+
+.rank-col {
+  text-align: center;
+  font-weight: 500;
+}
+
+.title-col {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Adjusted score table styles */
+.adjusted-score-table {
+  width: 100%;
+}
+
+.adjusted-score-header {
+  display: grid;
+  grid-template-columns: 50px 1fr 140px 140px;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.adjusted-score-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 140px 140px;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.adjusted-score-row:last-child {
+  border-bottom: none;
+}
+
+.score-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Years ratings table styles */
+.years-ratings-table {
+  width: 100%;
+}
+
+.years-ratings-header {
+  display: grid;
+  grid-template-columns: 70px 30% 30% 30%;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.years-ratings-header > * {
+  text-align: center;
+}
+
+.years-ratings-row {
+  display: grid;
+  grid-template-columns: 70px 30% 30% 30%;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.years-ratings-row:last-child {
+  border-bottom: none;
+}
+
+.years-ratings-row > * {
+  
+  text-align: center;
+}
+
+.year-col {
+  font-weight: 500;
+}
+
+.titles-col {
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-col {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Episodes vs metrics table styles */
+.episodes-metrics-table {
+  width: 100%;
+}
+
+.episodes-metrics-header {
+  display: grid;
+  grid-template-columns: 1fr 30% 30%;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.episodes-metrics-header > * {
+  text-align: center;
+}
+
+.episodes-metrics-row {
+  display: grid;
+  grid-template-columns: 1fr 30% 30%;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.episodes-metrics-row:last-child {
+  border-bottom: none;
+}
+
+.episodes-metrics-row > * {
+  text-align: center;
+}
+
+.range-col {
+  font-weight: 500;
+}
+
 @media (max-width: 720px) {
   .nav {
     flex-wrap: wrap;
@@ -303,6 +541,14 @@ button.secondary {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .volatile-header,
+  .volatile-row {
+    grid-template-columns: 40px 1fr 80px 80px 100px;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+  }
+
 }
 
 

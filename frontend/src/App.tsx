@@ -322,7 +322,6 @@ function AnalyticsPage() {
     { label: "Most common genre", value: "Action" },
     { label: "Longest running", value: "One Piece" },
     { label: "Peak release year", value: "2016" },
-    { label: "Avg favorites (top 500)", value: "820k" },
   ];
 
   return (
@@ -331,7 +330,7 @@ function AnalyticsPage() {
         <div>
           <p className="eyebrow">Analytics</p>
           <h1>Interesting patterns</h1>
-          <p className="subtitle">Quick highlights from the dataset.</p>
+          <p className="subtitle">Explore detailed analytics from the dataset.</p>
         </div>
       </header>
 
@@ -343,7 +342,323 @@ function AnalyticsPage() {
           </div>
         ))}
       </div>
+
+      <div className="accordion-container">
+        <AnalyticsAccordion<AdjustedScoreAnime[]>
+          title="Top Rated Anime (Ignoring 1-Star Ratings)"
+          endpoint="/api/anime/top/adjusted-score"
+          renderContent={(data) => <AdjustedScoreView data={data} />}
+        />
+        <AnalyticsAccordion<YearRatingStats[]>
+          title="Ratings by Year"
+          endpoint="/api/stats/years/ratings"
+          renderContent={(data) => <YearsRatingsView data={data} />}
+        />
+        <AnalyticsAccordion<EpisodesVsMetricsData>
+          title="Episodes vs Metrics"
+          endpoint="/api/stats/episodes-vs-metrics"
+          renderContent={(data) => <EpisodesVsMetricsView data={data} />}
+        />
+        <AnalyticsAccordion<VolatileAnime[]>
+          title="Most Polarizing Anime"
+          endpoint="/api/anime/ratings/volatile"
+          renderContent={(data) => <VolatileRatingsView data={data} />}
+        />
+        <AnalyticsAccordion<SequelStats>
+          title="Sequel vs First Season Scores"
+          endpoint="/api/stats/sequels-vs-first-season"
+          renderContent={(data) => <SequelStatsView data={data} />}
+        />
+      </div>
     </section>
+  );
+}
+
+type AccordionProps<T> = {
+  title: string;
+  endpoint: string;
+  renderContent: (data: T) => React.ReactNode;
+};
+
+function AnalyticsAccordion<T>({ title, endpoint, renderContent }: AccordionProps<T>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+    if (!isOpen && !data && !loading) {
+      setLoading(true);
+      setError(null);
+      // Add limit parameter for endpoints that require it
+      const url = endpoint.includes('volatile') || endpoint.includes('adjusted-score')
+        ? `${endpoint}?limit=20`
+        : endpoint;
+      fetch(url)
+        .then((res) => {
+          if (!res.ok) throw new Error("Request failed");
+          return res.json();
+        })
+        .then((result) => {
+          setData(result as T);
+          setError(null);
+        })
+        .catch(() => {
+          setError("Failed to load data");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  };
+
+  return (
+    <div className={`accordion ${isOpen ? "accordion-open" : ""}`}>
+      <button className="accordion-header" onClick={handleToggle} type="button">
+        <span>{title}</span>
+        <span className="accordion-icon">{isOpen ? "−" : "+"}</span>
+      </button>
+      {isOpen && (
+        <div className="accordion-content">
+          {loading && <div className="pill">Loading...</div>}
+          {error && <div className="callout">{error}</div>}
+          {!loading && !error && data && renderContent(data)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type AdjustedScoreAnime = {
+  anime_id: number;
+  title: string;
+  adjusted_score: number;
+  original_score: number | null;
+};
+
+function AdjustedScoreView({ data }: { data: AdjustedScoreAnime[] }) {
+  return (
+    <div className="adjusted-score-table">
+      <div className="adjusted-score-header">
+        <span className="rank-col">Rank</span>
+        <span className="title-col">Title</span>
+        <span className="score-col">Adjusted Score</span>
+        <span className="score-col">Original Score</span>
+      </div>
+      <ul className="list">
+        {data.map((anime, index) => {
+          const adjustedScore = Number(anime.adjusted_score);
+          const originalScore = anime.original_score != null ? Number(anime.original_score) : null;
+          return (
+            <li key={anime.anime_id} className="adjusted-score-row">
+              <span className="rank-col">{index + 1}</span>
+              <span className="title-col">{anime.title}</span>
+              <span className="score-col">{Number.isFinite(adjustedScore) ? adjustedScore.toFixed(2) : "N/A"}</span>
+              <span className="score-col">
+                {originalScore != null && Number.isFinite(originalScore) ? originalScore.toFixed(2) : "N/A"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+type YearRatingStats = {
+  year: number;
+  n_titles: number;
+  total_ratings: number;
+  avg_score: number;
+  rank_by_avg: number;
+};
+
+function YearsRatingsView({ data }: { data: YearRatingStats[] }) {
+  return (
+    <div className="years-ratings-table">
+      <div className="years-ratings-header">
+        <span className="year-col">Year</span>
+        <span className="score-col">Average Score</span>
+        <span className="titles-col">Number of Titles</span>
+        <span className="rank-col">Yearly Rating Rank</span>
+      </div>
+      <ul className="list">
+        {data
+          .sort((a, b) => Number(b.year) - Number(a.year))
+          .slice(0, 20)
+          .map((stat) => {
+            const avgScore = Number(stat.avg_score);
+            return (
+              <li key={stat.year} className="years-ratings-row">
+                <span className="year-col">{stat.year}</span>
+                <span className="score-col">{Number.isFinite(avgScore) ? avgScore.toFixed(2) : "N/A"}</span>
+                <span className="titles-col">{stat.n_titles.toLocaleString()}</span>
+                <span className="rank-col">#{stat.rank_by_avg}</span>
+              </li>
+            );
+          })}
+      </ul>
+    </div>
+  );
+}
+
+type EpisodeBinStats = {
+  bucket: number;
+  min_eps: number;
+  max_eps: number;
+  n: number;
+  avg_score: number | null;
+  avg_favorites: number | null;
+  avg_members: number | null;
+};
+
+type EpisodesVsMetricsData = {
+  bins: EpisodeBinStats[];
+  corr_eps_score: number;
+  corr_eps_favorites: number;
+  corr_eps_members: number;
+};
+
+function EpisodesVsMetricsView({ data }: { data: EpisodesVsMetricsData }) {
+  const corrScore = Number(data.corr_eps_score);
+  const corrFavorites = Number(data.corr_eps_favorites);
+  const corrMembers = Number(data.corr_eps_members);
+  
+  return (
+    <div>
+      <div className="card">
+        <div className="card-title">Correlations</div>
+        <div className="grid three">
+          <div className="stat-card">
+            <p className="eyebrow">Episodes vs Score</p>
+            <p className="stat-value">{Number.isFinite(corrScore) ? corrScore.toFixed(3) : "N/A"}</p>
+          </div>
+          <div className="stat-card">
+            <p className="eyebrow">Episodes vs Favorites</p>
+            <p className="stat-value">{Number.isFinite(corrFavorites) ? corrFavorites.toFixed(3) : "N/A"}</p>
+          </div>
+          <div className="stat-card">
+            <p className="eyebrow">Episodes vs Members</p>
+            <p className="stat-value">{Number.isFinite(corrMembers) ? corrMembers.toFixed(3) : "N/A"}</p>
+          </div>
+        </div>
+      </div>
+
+      <br />
+      <div className="episodes-metrics-table">
+        <div className="episodes-metrics-header">
+          <span className="range-col">Episode Range</span>
+          <span className="titles-col">Number of Titles</span>
+          <span className="score-col">Average Score</span>
+        </div>
+        <ul className="list">
+          {data.bins.map((bin) => {
+            const avgScore = bin.avg_score != null ? Number(bin.avg_score) : null;
+            return (
+              <li key={bin.bucket} className="episodes-metrics-row">
+                <span className="range-col">
+                  {bin.min_eps}–{bin.max_eps} episodes
+                </span>
+                <span className="titles-col">{bin.n.toLocaleString()}</span>
+                <span className="score-col">
+                  {avgScore != null && Number.isFinite(avgScore) ? avgScore.toFixed(2) : "N/A"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+type VolatileAnime = {
+  anime_id: number;
+  title: string;
+  rating_count: number;
+  mean_score: number;
+  stddev_score: number;
+};
+
+function VolatileRatingsView({ data }: { data: VolatileAnime[] }) {
+  return (
+    <div className="volatile-table">
+      <div className="volatile-table">
+        <div className="volatile-header">
+          <span className="rank-col">Rank</span>
+          <span className="title-col">Title</span>
+          <span className="metric-col">StdDev</span>
+          <span className="metric-col">Mean</span>
+          <span className="metric-col">Ratings</span>
+        </div>
+        <ul className="list">
+          {data.map((anime, index) => {
+            const stddev = Number(anime.stddev_score);
+            const mean = Number(anime.mean_score);
+            return (
+              <li key={anime.anime_id} className="volatile-row">
+                <span className="rank-col">{index + 1}</span>
+                <span className="title-col">{anime.title}</span>
+                <span className="metric-col">{Number.isFinite(stddev) ? stddev.toFixed(2) : "N/A"}</span>
+                <span className="metric-col">{Number.isFinite(mean) ? mean.toFixed(2) : "N/A"}</span>
+                <span className="metric-col">{anime.rating_count.toLocaleString()}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+type SequelStats = {
+  comparisons: number;
+  avg_diff: number;
+  median_diff: number;
+  pct_later_higher: number;
+};
+
+function SequelStatsView({ data }: { data: SequelStats }) {
+  const avgDiff = Number(data.avg_diff);
+  const medianDiff = Number(data.median_diff);
+  const pctLaterHigher = Number(data.pct_later_higher);
+  
+  return (
+      <div className="grid four">
+        <div className="stat-card">
+          <p className="eyebrow">Comparisons</p>
+          <p className="stat-value">{Number(data.comparisons).toLocaleString()}</p>
+        </div>
+        <div className="stat-card">
+          <p className="eyebrow">Avg Score Difference</p>
+          <p className="stat-value">
+            {Number.isFinite(avgDiff) ? (
+              <>
+                {avgDiff > 0 ? "+" : ""}
+                {avgDiff.toFixed(3)}
+              </>
+            ) : "N/A"}
+          </p>
+        </div>
+        <div className="stat-card">
+          <p className="eyebrow">Median Score Difference</p>
+          <p className="stat-value">
+            {Number.isFinite(medianDiff) ? (
+              <>
+                {medianDiff > 0 ? "+" : ""}
+                {medianDiff.toFixed(3)}
+              </>
+            ) : "N/A"}
+          </p>
+        </div>
+        <div className="stat-card">
+          <p className="eyebrow">% Sequels Better</p>
+          <p className="stat-value">
+            {Number.isFinite(pctLaterHigher) ? (pctLaterHigher * 100).toFixed(1) : "N/A"}%
+          </p>
+        </div>
+      </div>
   );
 }
 
