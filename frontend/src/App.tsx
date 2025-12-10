@@ -88,7 +88,7 @@ export default function App() {
   return (
     <div className="page-shell">
       <header className="topbar">
-        <div className="brand">MAL Analytics</div>
+        <div className="brand">Anilytics</div>
         <nav className="nav">
           {tabs.map((t) => (
             <button
@@ -370,18 +370,86 @@ function metricLabel(metric: RankingMetric, value: number | null) {
 function RankingPage() {
   const [query, setQuery] = useState("");
   const [metric, setMetric] = useState<RankingMetric>("rating");
+  const [page, setPage] = useState(1);
+  const [ranked, setRanked] = useState<TopAnime[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const ranked = useMemo(
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+
+    const pageSize = 100;
+    const offset = (page - 1) * pageSize;
+
+    fetch(`/api/anime/top?metric=${metric}&limit=${pageSize}&offset=${offset}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Request failed");
+        return res.json();
+      })
+      .then((data) => {
+        if (!isMounted) return;
+        const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+        const totalCount = typeof data?.total === "number" ? data.total : null;
+        // Map RankedAnime to TopAnime format; coerce metrics to numbers so ratings render
+        const toNumber = (v: unknown) => {
+          const num = Number(v);
+          return Number.isFinite(num) ? num : null;
+        };
+
+        const mapped = items.map((a: any) => ({
+          anime_id: a.anime_id,
+          title: a.title,
+          metric:
+            metric === "rating"
+              ? toNumber(a.score)
+              : metric === "popularity"
+              ? toNumber(a.members_count)
+              : toNumber(a.favorites_count),
+        }));
+        setRanked(mapped);
+        setTotal(totalCount);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setError("Failed to load rankings. Showing fallback data.");
+        setRanked(fallbackTopLists[metric]);
+        setTotal(null);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [metric, page]);
+
+  const filtered = useMemo(
     () =>
-      fallbackTopLists[metric]
+      ranked
         .filter((anime) => anime.title.toLowerCase().includes(query.toLowerCase()))
         .sort((a, b) => {
           const av = a.metric ?? 0;
           const bv = b.metric ?? 0;
-          return metric === "popularity" ? av - bv : bv - av;
+          return bv - av; // All metrics: higher values = better ranking
         }),
-    [query, metric]
+    [query, ranked, metric]
   );
+
+  const pageSize = 100;
+  const totalPages = total != null ? Math.max(1, Math.ceil(total / pageSize)) : Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered;
+
+  const canPrev = currentPage > 1;
+  const canNext = total != null ? currentPage < totalPages : ranked.length >= pageSize;
+
+  useEffect(() => {
+    setPage(1);
+  }, [metric, query]);
 
   return (
     <section className="panel">
@@ -405,17 +473,41 @@ function RankingPage() {
         </div>
       </header>
 
+      {loading && <div className="pill">Loading rankings…</div>}
+      {error && <div className="callout">{error}</div>}
+
       <div className="card">
-        <div className="card-title">Results</div>
+        <div className="card-title">Results ({filtered.length}{total != null ? ` / ${total}` : ""})</div>
         <ul className="list">
-          {ranked.map((anime, index) => (
+          {paged.map((anime, index) => (
             <li key={anime.anime_id} className="list-row">
-              <span className="rank">{index + 1}</span>
+              <span className="rank">{(currentPage - 1) * pageSize + index + 1}</span>
               <span>{anime.title}</span>
               <span className="metric">{metricLabel(metric, anime.metric)}</span>
             </li>
           ))}
         </ul>
+        <div className="input-row" style={{ justifyContent: "space-between", gap: "0.75rem" }}>
+          <button type="button" onClick={() => setPage(1)} disabled={!canPrev}>
+            First 100
+          </button>
+          <div className="input-row" style={{ gap: "0.5rem" }}>
+            <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={!canPrev}>
+              Prev 100
+            </button>
+            <span className="pill">Page {currentPage} / {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!canNext}
+            >
+              Next 100
+            </button>
+          </div>
+          <button type="button" onClick={() => setPage(totalPages)} disabled={!canNext && !canPrev}>
+            Last 100
+          </button>
+        </div>
       </div>
     </section>
   );
