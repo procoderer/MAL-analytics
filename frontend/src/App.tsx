@@ -372,7 +372,7 @@ function RankingPage() {
   const [metric, setMetric] = useState<RankingMetric>("rating");
   const [page, setPage] = useState(1);
   const [ranked, setRanked] = useState<TopAnime[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
+  const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -392,7 +392,6 @@ function RankingPage() {
       .then((data) => {
         if (!isMounted) return;
         const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
-        const totalCount = typeof data?.total === "number" ? data.total : null;
         // Map RankedAnime to TopAnime format; coerce metrics to numbers so ratings render
         const toNumber = (v: unknown) => {
           const num = Number(v);
@@ -410,13 +409,13 @@ function RankingPage() {
               : toNumber(a.favorites_count),
         }));
         setRanked(mapped);
-        setTotal(totalCount);
+        setHasNext(items.length === pageSize);
       })
       .catch(() => {
         if (!isMounted) return;
         setError("Failed to load rankings. Showing fallback data.");
         setRanked(fallbackTopLists[metric]);
-        setTotal(null);
+        setHasNext(false);
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -440,12 +439,12 @@ function RankingPage() {
   );
 
   const pageSize = 100;
-  const totalPages = total != null ? Math.max(1, Math.ceil(total / pageSize)) : Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
+  const totalPages = hasNext ? page + 1 : page; // unknown total; indicate next if hasNext
+  const currentPage = page;
   const paged = filtered;
 
   const canPrev = currentPage > 1;
-  const canNext = total != null ? currentPage < totalPages : ranked.length >= pageSize;
+  const canNext = hasNext;
 
   useEffect(() => {
     setPage(1);
@@ -477,7 +476,7 @@ function RankingPage() {
       {error && <div className="callout">{error}</div>}
 
       <div className="card">
-        <div className="card-title">Results ({filtered.length}{total != null ? ` / ${total}` : ""})</div>
+        <div className="card-title">Results ({filtered.length})</div>
         <ul className="list">
           {paged.map((anime, index) => (
             <li key={anime.anime_id} className="list-row">
@@ -495,7 +494,12 @@ function RankingPage() {
             <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={!canPrev}>
               Prev 100
             </button>
-            <span className="pill">Page {currentPage} / {totalPages}</span>
+            <span
+              className="pill"
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: "90px", lineHeight: 1 }}
+            >
+              Page {currentPage}
+            </span>
             <button
               type="button"
               onClick={() => setPage((p) => p + 1)}
@@ -504,9 +508,6 @@ function RankingPage() {
               Next 100
             </button>
           </div>
-          <button type="button" onClick={() => setPage(totalPages)} disabled={!canNext && !canPrev}>
-            Last 100
-          </button>
         </div>
       </div>
     </section>
