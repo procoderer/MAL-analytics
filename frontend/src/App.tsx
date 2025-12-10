@@ -349,10 +349,14 @@ function TopList({ title, items, metricName }: { title: string; items: TopAnime[
     <div className="card">
       <div className="card-title">{title}</div>
       <ol className="top-list">
-        {items.map((anime) => (
+        {items.map((anime, idx) => (
           <li key={anime.anime_id}>
             <span>{anime.title}</span>
-            {anime.metric != null ? <span className="metric">{metricLabel(metricName, anime.metric)}</span> : null}
+            {metricName === "popularity" ? (
+              <span className="metric">#{idx + 1}</span>
+            ) : anime.metric != null ? (
+              <span className="metric">{metricLabel(metricName, anime.metric)}</span>
+            ) : null}
           </li>
         ))}
       </ol>
@@ -478,13 +482,17 @@ function RankingPage() {
       <div className="card">
         <div className="card-title">Results ({filtered.length})</div>
         <ul className="list">
-          {paged.map((anime, index) => (
-            <li key={anime.anime_id} className="list-row">
-              <span className="rank">{(currentPage - 1) * pageSize + index + 1}</span>
-              <span>{anime.title}</span>
-              <span className="metric">{metricLabel(metric, anime.metric)}</span>
-            </li>
-          ))}
+          {paged.map((anime, index) => {
+            const rank = (currentPage - 1) * pageSize + index + 1;
+            const metricDisplay = metric === "popularity" ? `#${rank}` : metricLabel(metric, anime.metric);
+            return (
+              <li key={anime.anime_id} className="list-row">
+                <span className="rank">{rank}</span>
+                <span>{anime.title}</span>
+                <span className="metric">{metricDisplay}</span>
+              </li>
+            );
+          })}
         </ul>
         <div className="input-row" style={{ justifyContent: "space-between", gap: "0.75rem" }}>
           <button type="button" onClick={() => setPage(1)} disabled={!canPrev}>
