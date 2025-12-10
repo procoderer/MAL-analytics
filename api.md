@@ -552,3 +552,34 @@ Top-level correlation fields:
 - **Return Type:** `Anime`
 
 Returns the full anime row (see `Anime` in Shared Types).
+
+---
+
+## Route 14 – Search Anime by Title
+
+**Route:** `/anime/search`  
+**Method:** `GET`  
+**Description:** Performs a fuzzy title search and returns lightweight anime summaries ordered by title match and popularity.
+
+### Route Parameters
+
+- **Route Parameter(s):** None
+
+### Query Parameters
+
+- `q` – **type:** string (required, query)  
+  Partial title to search for. Must be at least 2 characters.
+
+- `limit` – **type:** integer (optional, query)  
+  Maximum number of results to return. Defaults to 10. Clamped to 1–50.
+
+### Response
+
+- **Return Type:** JSON Array of `SearchAnime`
+
+#### SearchAnime object
+
+- `anime_id` – **type:** integer  
+- `title` – **type:** string  
+- `score` – **type:** number or null  
+- `num_episodes` – **type:** integer or null  

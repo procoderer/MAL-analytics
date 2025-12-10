@@ -94,42 +94,6 @@ def create_app() -> Flask:
             rows = cur.fetchall()
             return jsonify(rows)
 
-    # Route 1b – Search Anime by Title
-    @app.get("/api/anime/search")
-    def search_anime_by_title():
-        query_str = request.args.get("q", "").strip()
-        if len(query_str) < 2:
-            return jsonify([])
-
-        limit = request.args.get("limit", "10")
-        try:
-            limit = int(limit)
-            if limit <= 0 or limit > 50:
-                limit = 10
-        except ValueError:
-            limit = 10
-
-        query = """
-        SELECT a.anime_id, a.title, a.score, a.num_episodes
-        FROM anime a
-        WHERE LOWER(a.title) LIKE LOWER(%(pattern)s)
-        ORDER BY
-          CASE WHEN LOWER(a.title) LIKE LOWER(%(starts_with)s) THEN 0 ELSE 1 END,
-          a.members_count DESC NULLS LAST
-        LIMIT %(limit)s;
-        """
-
-        params = {
-            "pattern": f"%{query_str}%",
-            "starts_with": f"{query_str}%",
-            "limit": limit,
-        }
-
-        with get_conn() as conn, conn.cursor() as cur:
-            cur.execute(query, params)
-            rows = cur.fetchall()
-            return jsonify(rows)
-
     # Route 2 – Top Lists by Rating, Popularity, and Favorites
     @app.get("/api/anime/top-lists")
     def top_lists():
@@ -659,6 +623,42 @@ def create_app() -> Flask:
             if row is None:
                 return jsonify({"error": "anime not found"}), 404
             return jsonify(row)
+
+    # Route 14 – Search Anime by Title
+    @app.get("/api/anime/search")
+    def search_anime_by_title():
+        query_str = request.args.get("q", "").strip()
+        if len(query_str) < 2:
+            return jsonify([])
+
+        limit = request.args.get("limit", "10")
+        try:
+            limit = int(limit)
+            if limit <= 0 or limit > 50:
+                limit = 10
+        except ValueError:
+            limit = 10
+
+        query = """
+        SELECT a.anime_id, a.title, a.score, a.num_episodes
+        FROM anime a
+        WHERE LOWER(a.title) LIKE LOWER(%(pattern)s)
+        ORDER BY
+          CASE WHEN LOWER(a.title) LIKE LOWER(%(starts_with)s) THEN 0 ELSE 1 END,
+          a.members_count DESC NULLS LAST
+        LIMIT %(limit)s;
+        """
+
+        params = {
+            "pattern": f"%{query_str}%",
+            "starts_with": f"{query_str}%",
+            "limit": limit,
+        }
+
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            return jsonify(rows)
 
     return app
 
