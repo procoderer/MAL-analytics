@@ -74,7 +74,7 @@ def create_app() -> Flask:
           (%(max_score)s IS NULL OR a.score <= %(max_score)s)
         GROUP BY a.anime_id
         HAVING
-          (%(genre_ids)s IS NULL OR COUNT(DISTINCT CASE WHEN ag.genre_id = ANY(%(genre_ids)s) THEN ag.genre_id END) = COALESCE(cardinality(%(genre_ids)s),0))
+          (%(genre_ids)s::int[] IS NULL OR COUNT(DISTINCT CASE WHEN ag.genre_id = ANY(%(genre_ids)s::int[]) THEN ag.genre_id END) = COALESCE(cardinality(%(genre_ids)s::int[]),0))
         ORDER BY a.score DESC NULLS LAST, a.members_count DESC NULLS LAST
         LIMIT %(limit)s;
         """

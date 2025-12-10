@@ -171,6 +171,48 @@ function toMetric(value: unknown): number | null {
 }
 
 function HomePage({ topLists, loading, error }: { topLists: TopListsResponse; loading: boolean; error: string | null }) {
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const handleSearch = async (filters: {
+    season?: string;
+    type?: string;
+    source_type?: string;
+    min_score?: number;
+    max_score?: number;
+    limit: number;
+  }) => {
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const params = new URLSearchParams();
+      if (filters.season) params.append('season', filters.season);
+      if (filters.type) params.append('type', filters.type);
+      if (filters.source_type) params.append('source_type', filters.source_type);
+      if (filters.min_score !== undefined) params.append('min_score', filters.min_score.toString());
+      if (filters.max_score !== undefined) params.append('max_score', filters.max_score.toString());
+      params.append('limit', filters.limit.toString());
+
+      console.log('Search params:', params.toString());
+      const res = await fetch(`/api/anime?${params.toString()}`);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Search error response:', errorText);
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      console.log('Search results:', data.length, 'items');
+      setSearchResults(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Search failed:', err);
+      setSearchError('Search failed. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
   return (
     <section className="panel">
       <header className="panel-header">
@@ -181,11 +223,27 @@ function HomePage({ topLists, loading, error }: { topLists: TopListsResponse; lo
             Search the catalogue, filter by attributes, and explore quick top lists.
           </p>
         </div>
-        <SearchFilters />
+        <SearchFilters onSearch={handleSearch} />
       </header>
 
       {error ? <div className="callout">{error}</div> : null}
       {loading ? <div className="pill">Loading live data…</div> : null}
+      {searching ? <div className="pill">Searching…</div> : null}
+      {searchError ? <div className="callout">{searchError}</div> : null}
+
+      {searchResults.length > 0 ? (
+        <div className="card">
+          <div className="card-title">Search Results ({searchResults.length})</div>
+          <ul className="list">
+            {searchResults.map((anime) => (
+              <li key={anime.anime_id} className="list-row">
+                <span>{anime.title}</span>
+                {anime.score != null ? <span className="metric">{Number(anime.score).toFixed(1)}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="grid three">
         <TopList title="Top 10 rated" items={topLists.rating} metricName="rating" />
@@ -196,34 +254,90 @@ function HomePage({ topLists, loading, error }: { topLists: TopListsResponse; lo
   );
 }
 
-function SearchFilters() {
+function SearchFilters({ onSearch }: { onSearch: (filters: any) => void }) {
+  const [season, setSeason] = useState('');
+  const [type, setType] = useState('');
+  const [sourceType, setSourceType] = useState('');
+  const [minScore, setMinScore] = useState('');
+  const [maxScore, setMaxScore] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch({
+      season: season || undefined,
+      type: type || undefined,
+      source_type: sourceType || undefined,
+      min_score: minScore ? parseFloat(minScore) : undefined,
+      max_score: maxScore ? parseFloat(maxScore) : undefined,
+      limit: 20,
+    });
+  };
+
   return (
-    <form className="search-card" onSubmit={(e) => e.preventDefault()}>
+    <form className="search-card" onSubmit={handleSubmit}>
       <label className="label">Anime search</label>
       <div className="input-row">
-        <input type="text" placeholder="Search title" />
-        <select>
-          <option>Any genre</option>
-          <option>Action</option>
-          <option>Drama</option>
-          <option>Fantasy</option>
-          <option>Slice of Life</option>
+        <select value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="">Any type</option>
+          <option value="TV">TV</option>
+          <option value="Movie">Movie</option>
+          <option value="OVA">OVA</option>
+          <option value="ONA">ONA</option>
+          <option value="Special">Special</option>
+        </select>
+        <select value={season} onChange={(e) => setSeason(e.target.value)}>
+          <option value="">Any season</option>
+          <option value="Summer 2022">Summer 2022</option>
+          <option value="Spring 2022">Spring 2022</option>
+          <option value="Winter 2022">Winter 2022</option>
+          <option value="Fall 2021">Fall 2021</option>
+          <option value="Summer 2021">Summer 2021</option>
+          <option value="Spring 2021">Spring 2021</option>
+          <option value="Winter 2021">Winter 2021</option>
+          <option value="Fall 2020">Fall 2020</option>
+          <option value="Summer 2020">Summer 2020</option>
+          <option value="Spring 2020">Spring 2020</option>
+          <option value="Winter 2020">Winter 2020</option>
         </select>
       </div>
       <div className="input-row">
-        <select>
-          <option>Any year</option>
-          <option>2025</option>
-          <option>2024</option>
-          <option>2023</option>
-          <option>2022</option>
+        <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
+          <option value="">Any source</option>
+          <option value="Manga">Manga</option>
+          <option value="Light novel">Light Novel</option>
+          <option value="Original">Original</option>
+          <option value="Visual novel">Visual Novel</option>
+          <option value="Game">Game</option>
+          <option value="Novel">Novel</option>
+          <option value="4-koma manga">4-koma Manga</option>
+          <option value="Book">Book</option>
+          <option value="Card game">Card Game</option>
+          <option value="Music">Music</option>
+          <option value="Web manga">Web Manga</option>
+          <option value="Web novel">Web Novel</option>
+          <option value="Mixed media">Mixed Media</option>
+          <option value="Other">Other</option>
         </select>
-        <select>
-          <option>Any format</option>
-          <option>TV</option>
-          <option>Movie</option>
-          <option>OVA/ONA</option>
-        </select>
+      </div>
+      <div className="input-row">
+        <input 
+          type="number" 
+          placeholder="Min score (e.g. 7.0)" 
+          step="0.1" 
+          min="0" 
+          max="10"
+          value={minScore}
+          onChange={(e) => setMinScore(e.target.value)}
+        />
+        <input 
+          type="number" 
+          placeholder="Max score (e.g. 10.0)" 
+          step="0.1" 
+          min="0" 
+          max="10"
+          value={maxScore}
+          onChange={(e) => setMaxScore(e.target.value)}
+        />
       </div>
       <button type="submit">Search</button>
     </form>
