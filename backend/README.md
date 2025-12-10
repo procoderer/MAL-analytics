@@ -24,3 +24,9 @@ python app.py
 ```
 
 Server will start on `http://127.0.0.1:5001`.
+
+## Running tests
+
+```bash
+python -m pytest --cov=app --cov-report=term-missing
+```
