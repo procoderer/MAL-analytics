@@ -239,7 +239,7 @@ select {
   color: #f4f6ff;
   border-radius: 12px;
   padding: 0.7rem 0.85rem;
-  min-width: 140px;
+  min-width: 220px;
 }
 
 input::placeholder {

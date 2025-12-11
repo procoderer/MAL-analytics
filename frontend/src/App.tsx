@@ -181,6 +181,7 @@ function HomePage({ topLists, loading, error }: { topLists: TopListsResponse; lo
     source_type?: string;
     min_score?: number;
     max_score?: number;
+    genre_ids?: string | number;
     limit: number;
   }) => {
     setSearching(true);
@@ -192,6 +193,7 @@ function HomePage({ topLists, loading, error }: { topLists: TopListsResponse; lo
       if (filters.source_type) params.append('source_type', filters.source_type);
       if (filters.min_score !== undefined) params.append('min_score', filters.min_score.toString());
       if (filters.max_score !== undefined) params.append('max_score', filters.max_score.toString());
+      if (filters.genre_ids) params.append('genre_ids', filters.genre_ids.toString());
       params.append('limit', filters.limit.toString());
 
       console.log('Search params:', params.toString());
@@ -260,6 +262,19 @@ function SearchFilters({ onSearch }: { onSearch: (filters: any) => void }) {
   const [sourceType, setSourceType] = useState('');
   const [minScore, setMinScore] = useState('');
   const [maxScore, setMaxScore] = useState('');
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState('');
+
+  useEffect(() => {
+    fetch("/api/genres")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setGenres(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,6 +284,7 @@ function SearchFilters({ onSearch }: { onSearch: (filters: any) => void }) {
       source_type: sourceType || undefined,
       min_score: minScore ? parseFloat(minScore) : undefined,
       max_score: maxScore ? parseFloat(maxScore) : undefined,
+      genre_ids: selectedGenre || undefined,
       limit: 20,
     });
   };
@@ -318,6 +334,14 @@ function SearchFilters({ onSearch }: { onSearch: (filters: any) => void }) {
           <option value="Mixed media">Mixed Media</option>
           <option value="Other">Other</option>
         </select>
+        <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)}>
+          <option value="">Any genre</option>
+          {genres.map((genre) => (
+            <option key={genre.genre_id} value={genre.genre_id}>
+              {genre.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="input-row">
         <input 
@@ -349,14 +373,10 @@ function TopList({ title, items, metricName }: { title: string; items: TopAnime[
     <div className="card">
       <div className="card-title">{title}</div>
       <ol className="top-list">
-        {items.map((anime, idx) => (
+        {items.map((anime) => (
           <li key={anime.anime_id}>
             <span>{anime.title}</span>
-            {metricName === "popularity" ? (
-              <span className="metric">#{idx + 1}</span>
-            ) : anime.metric != null ? (
-              <span className="metric">{metricLabel(metricName, anime.metric)}</span>
-            ) : null}
+            {anime.metric != null ? <span className="metric">{metricLabel(metricName, anime.metric)}</span> : null}
           </li>
         ))}
       </ol>
@@ -368,7 +388,8 @@ function metricLabel(metric: RankingMetric, value: number | null) {
   if (value === null || typeof value !== "number" || Number.isNaN(value)) return "";
   if (metric === "rating") return value.toFixed(1);
   if (metric === "favorites") return value.toLocaleString();
-  return `#${value}`;
+  if (metric === "popularity") return value.toLocaleString();
+  return String(value);
 }
 
 function RankingPage() {
@@ -459,21 +480,14 @@ function RankingPage() {
       <header className="panel-header">
         <div>
           <p className="eyebrow">Ranking</p>
-          <h1>Search by ranking</h1>
-          <p className="subtitle">Pick a metric and refine results instantly.</p>
+          <h1>Browse rankings</h1>
+          <p className="subtitle">Pick a metric and explore the top anime.</p>
         </div>
-        <div className="input-row">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search anime"
-          />
-          <select value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)}>
-            <option value="rating">Rating</option>
-            <option value="popularity">Popularity</option>
-            <option value="favorites">Favoritism</option>
-          </select>
-        </div>
+        <select value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)}>
+          <option value="rating">Rating</option>
+          <option value="popularity">Popularity</option>
+          <option value="favorites">Favoritism</option>
+        </select>
       </header>
 
       {loading && <div className="pill">Loading rankings…</div>}
@@ -482,17 +496,13 @@ function RankingPage() {
       <div className="card">
         <div className="card-title">Results ({filtered.length})</div>
         <ul className="list">
-          {paged.map((anime, index) => {
-            const rank = (currentPage - 1) * pageSize + index + 1;
-            const metricDisplay = metric === "popularity" ? `#${rank}` : metricLabel(metric, anime.metric);
-            return (
-              <li key={anime.anime_id} className="list-row">
-                <span className="rank">{rank}</span>
-                <span>{anime.title}</span>
-                <span className="metric">{metricDisplay}</span>
-              </li>
-            );
-          })}
+          {paged.map((anime, index) => (
+            <li key={anime.anime_id} className="list-row">
+              <span className="rank">{(currentPage - 1) * pageSize + index + 1}</span>
+              <span>{anime.title}</span>
+              <span className="metric">{metricLabel(metric, anime.metric)}</span>
+            </li>
+          ))}
         </ul>
         <div className="input-row" style={{ justifyContent: "space-between", gap: "0.75rem" }}>
           <button type="button" onClick={() => setPage(1)} disabled={!canPrev}>
