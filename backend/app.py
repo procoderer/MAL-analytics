@@ -174,7 +174,7 @@ def create_app() -> Flask:
     # Route 4 – Recommendations from Recommendation Table + Filters
     @app.get("/api/anime/<int:seed_id>/recommendations")
     def recommendations(seed_id: int):
-        # Accepts: min_score, limit
+        # Accepts: min_score, limit, genre_ids, era
         try:
             limit = int(request.args.get("limit", 10))
             if limit <= 0:
@@ -189,7 +189,25 @@ def create_app() -> Flask:
             except (TypeError, ValueError):
                 pass
 
-        # Simplified query - just get recommendations without complex filtering
+        # Parse genre_ids
+        genre_id = None
+        if "genre_ids" in request.args:
+            try:
+                genre_id = int(request.args.get("genre_ids"))
+            except (TypeError, ValueError):
+                pass
+
+        # Parse era (decade start year like 2020, 2010, etc.)
+        era_start = None
+        era_end = None
+        if "era" in request.args:
+            try:
+                era_start = int(request.args.get("era"))
+                era_end = era_start + 9
+            except (TypeError, ValueError):
+                pass
+
+        # Query with optional genre and era filtering
         query = """
         WITH recs AS (
           SELECT
@@ -202,10 +220,16 @@ def create_app() -> Flask:
           WHERE r.anime_id_a = %(seed_id)s OR r.anime_id_b = %(seed_id)s
           GROUP BY rec_id
         )
-        SELECT a.anime_id, a.title, a.score, a.num_episodes, recs.votes
+        SELECT DISTINCT a.anime_id, a.title, a.score, a.num_episodes, recs.votes
         FROM recs
         JOIN anime a ON a.anime_id = recs.rec_id
+        LEFT JOIN anime_genre ag ON ag.anime_id = a.anime_id
         WHERE (%(min_score)s IS NULL OR a.score >= %(min_score)s)
+          AND (%(genre_id)s IS NULL OR ag.genre_id = %(genre_id)s)
+          AND (%(era_start)s IS NULL OR (
+            NULLIF(substring(a.season FROM '\\d{4}'), '')::int >= %(era_start)s
+            AND NULLIF(substring(a.season FROM '\\d{4}'), '')::int <= %(era_end)s
+          ))
         ORDER BY recs.votes DESC, a.score DESC NULLS LAST
         LIMIT %(limit)s;
         """
@@ -213,6 +237,9 @@ def create_app() -> Flask:
         params = {
             "seed_id": seed_id,
             "min_score": min_score,
+            "genre_id": genre_id,
+            "era_start": era_start,
+            "era_end": era_end,
             "limit": limit,
         }
 

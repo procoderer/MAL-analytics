@@ -976,6 +976,10 @@ function RecommendPage() {
       params.set("min_score", "8");
     }
 
+    if (selectedEra) {
+      params.set("era", selectedEra);
+    }
+
     const url = `/api/anime/${selectedAnime.anime_id}/recommendations?${params.toString()}`;
     console.log("Fetching recommendations:", url);
 
