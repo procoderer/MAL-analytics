@@ -88,7 +88,7 @@ export default function App() {
   return (
     <div className="page-shell">
       <header className="topbar">
-        <div className="brand">Anilytics</div>
+        <div className="brand">Analytics</div>
         <nav className="nav">
           {tabs.map((t) => (
             <button
